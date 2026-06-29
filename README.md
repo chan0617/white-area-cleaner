@@ -1,46 +1,43 @@
-# White Area Cleaner
+# 흰색 영역 채우기 (White Area Cleaner)
 
-Convert off-white pixels to pure white automatically — entirely in your browser.
+투명 배경 일러스트(스티커 등)에서 **외곽선 안쪽에 갇힌 빈(투명) 공간을 흰색으로
+자동으로 채워 주는** 웹앱입니다. 우산·모자·피부 같은 **기존 색상은 절대 바뀌지
+않고**, 바깥쪽 투명 배경도 그대로 유지됩니다. 모든 처리는 브라우저에서만 이루어지며
+이미지가 서버로 전송되지 않습니다.
 
-Some illustration images have socks, highlights or white objects that look
-slightly off-white, grey, cream or anti-aliased. This app finds those near-white
-parts and snaps them to clean pure white (`#FFFFFF`) while preserving outlines,
-colours and transparent backgrounds.
+## 주요 기능
 
-## Features
+- 여러 장 업로드 (드래그&드롭 / 클릭) · PNG, JPG, JPEG, WEBP
+- 원본 ↔ 결과 미리보기 비교
+- 외곽선 안쪽의 빈 공간만 흰색으로 채우기
+- **결과 이미지에서 영역을 클릭하면 그 부분만 흰색에서 제외** (다시 클릭하면 복원)
+- "빈 공간 기준값(알파)" 슬라이더로 채우는 범위 조절
+- 개별 다운로드 / 전체 ZIP 다운로드
+- 파일별 처리 상태 표시
+- 반응형(모바일) UI · 백엔드 없음
 
-- Multiple image upload (drag & drop or click) — PNG, JPG, JPEG, WEBP
-- Side-by-side original vs cleaned preview
-- Adjustable **white tolerance** and **brightness threshold** sliders
-- **Low saturation only** toggle so only near-neutral pixels are affected
-- Preserves black outlines, skin tones, coloured areas and PNG transparency
-- Download each image individually or **all as a ZIP**
-- Per-file processing status
-- Minimal, responsive, mobile-friendly UI
-- 100% client-side — no backend, no uploads
+## 동작 원리
 
-## How the whitening works
+[`src/imageProcessing.ts`](src/imageProcessing.ts) 참고:
 
-For every pixel the app checks three things (see
-[`src/imageProcessing.ts`](src/imageProcessing.ts)):
+1. **빈 공간** = 알파(투명도)가 기준값보다 낮은 픽셀. 불투명한 외곽선/색칠은 벽 역할.
+2. 이미지 테두리에서 시작해 연결된 빈 픽셀을 flood-fill → 바깥 배경으로 표시.
+3. 바깥 배경에 닿지 못한 빈 영역 = 외곽선 안쪽에 갇힌 공간. 연결된 덩어리마다
+   번호를 매겨, 제외하지 않은 영역만 `RGB(255,255,255)` 흰색으로 채움.
 
-1. **Bright enough** — the darkest channel must clear the brightness threshold,
-   which rejects black outlines, skin, the suitcase and coloured shadows.
-2. **Close to white** — the gap between the brightest and darkest channel must be
-   within the white tolerance, absorbing cream / grey / anti-aliased edges.
-3. **Low saturation** (optional) — rejects pale-but-clearly-tinted highlights.
+## 기술 스택
 
-Matching pixels become `RGB(255, 255, 255)`; the alpha channel is never changed.
+React + TypeScript · Canvas API · JSZip · Vite. 백엔드 불필요.
 
-## Tech stack
-
-React + TypeScript · Canvas API for pixel processing · JSZip for ZIP download ·
-Vite. No backend required.
-
-## Run locally
+## 로컬 실행
 
 ```bash
 npm install
-npm run dev      # start dev server
-npm run build    # type-check + production build
+npm run dev      # 개발 서버
+npm run build    # 타입 체크 + 프로덕션 빌드
 ```
+
+## 배포
+
+`main` 브랜치에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 자동으로
+GitHub Pages에 배포합니다. 배포 주소: **https://chan0617.github.io/white-area-cleaner/**

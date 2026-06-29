@@ -6,56 +6,32 @@ interface Props {
   onChange: (next: Settings) => void
 }
 
-/** Controls that tune the whitening algorithm. */
+/** 빈 공간 판단 기준을 조절하는 설정 패널 */
 export default function SettingsPanel({ settings, onChange }: Props) {
-  const update = (patch: Partial<Settings>) => onChange({ ...settings, ...patch })
-
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>Settings</h2>
+        <h2>설정</h2>
         <button className="btn-ghost" onClick={() => onChange(DEFAULT_SETTINGS)}>
-          Reset
+          초기화
         </button>
       </div>
 
       <label className="control">
         <span className="control-label">
-          White tolerance <b>{settings.whiteTolerance}</b>
+          빈 공간 기준값 <b>{settings.alphaThreshold}</b>
         </span>
         <input
           type="range"
-          min={0}
-          max={120}
-          value={settings.whiteTolerance}
-          onChange={(e) => update({ whiteTolerance: Number(e.target.value) })}
+          min={1}
+          max={200}
+          value={settings.alphaThreshold}
+          onChange={(e) => onChange({ ...settings, alphaThreshold: Number(e.target.value) })}
         />
-        <span className="control-hint">How far from pure white still counts as white.</span>
-      </label>
-
-      <label className="control">
-        <span className="control-label">
-          Brightness threshold <b>{settings.brightnessThreshold}</b>
+        <span className="control-hint">
+          픽셀이 얼마나 투명해야 "빈 공간"으로 볼지 정합니다. 값이 크면 더 넓게 채워집니다.
         </span>
-        <input
-          type="range"
-          min={100}
-          max={255}
-          value={settings.brightnessThreshold}
-          onChange={(e) => update({ brightnessThreshold: Number(e.target.value) })}
-        />
-        <span className="control-hint">Pixels darker than this are never touched.</span>
       </label>
-
-      <label className="control control-toggle">
-        <span className="control-label">Low saturation only</span>
-        <input
-          type="checkbox"
-          checked={settings.lowSaturationOnly}
-          onChange={(e) => update({ lowSaturationOnly: e.target.checked })}
-        />
-      </label>
-      <span className="control-hint">Only affect near-neutral (grey/white) pixels.</span>
     </div>
   )
 }

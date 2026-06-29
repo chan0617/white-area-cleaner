@@ -44,8 +44,8 @@ export default function UploadArea({ onFiles }: Props) {
         }}
       />
       <div className="upload-icon">⬆️</div>
-      <p className="upload-title">Drag &amp; drop images here</p>
-      <p className="upload-sub">or click to browse · PNG, JPG, JPEG, WEBP · multiple files</p>
+      <p className="upload-title">이미지를 여기에 끌어다 놓으세요</p>
+      <p className="upload-sub">또는 클릭해서 선택 · PNG, JPG, JPEG, WEBP · 여러 장 가능</p>
     </div>
   )
 }
