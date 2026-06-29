@@ -5,8 +5,8 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  sensitivity: 60,
-  brightness: 50,
+  sensitivity: 50,
+  brightness: 45,
   lowSatOnly: false,
 }
 

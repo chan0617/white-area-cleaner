@@ -1,21 +1,5 @@
 import type { Settings } from './types'
 
-function rgbToHsl(r: number, g: number, b: number) {
-  const rn = r / 255, gn = g / 255, bn = b / 255
-  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn)
-  const l = (max + min) / 2
-  if (max === min) return { h: 0, s: 0, l }
-  const d = max - min
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-  let h = 0
-  switch (max) {
-    case rn: h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6; break
-    case gn: h = ((bn - rn) / d + 2) / 6; break
-    case bn: h = ((rn - gn) / d + 4) / 6; break
-  }
-  return { h, s, l }
-}
-
 export async function processImage(file: File, settings: Settings): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const canvas = document.createElement('canvas')
@@ -28,17 +12,20 @@ export async function processImage(file: File, settings: Settings): Promise<Blob
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const data = imageData.data
 
-  // brightness 슬라이더: 0→L≥0.50(어두운 흰색도), 100→L≥0.95(거의 순백만)
-  const minL = 0.50 + (settings.brightness / 100) * 0.45
-  // sensitivity 슬라이더: 0→S≤0.04(무채색만), 100→S≤0.50(연한 컬러까지)
-  const maxS = settings.lowSatOnly
-    ? 0.08
-    : 0.04 + (settings.sensitivity / 100) * 0.46
+  // 밝기 기준: 픽셀의 가장 어두운 채널이 이 값 이상이어야 "밝다"고 판단
+  // brightness 0 → minCh=80 (어두운 흰색도), 100 → minCh=235 (거의 순백만)
+  const minCh = 80 + (settings.brightness / 100) * 155
+
+  // 색상 분산 기준: R·G·B 최댓값-최솟값이 이 이하여야 "무채색에 가깝다"고 판단
+  // sensitivity 0 → maxDiff=5 (순수 무채색만), 100 → maxDiff=90 (연한 컬러까지)
+  const maxDiff = settings.lowSatOnly ? 12 : (settings.sensitivity / 100) * 90
 
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] === 0) continue // 완전 투명 픽셀은 건드리지 않음
-    const { s, l } = rgbToHsl(data[i], data[i + 1], data[i + 2])
-    if (l >= minL && s <= maxS) {
+    if (data[i + 3] === 0) continue // 완전 투명은 건드리지 않음
+    const r = data[i], g = data[i + 1], b = data[i + 2]
+    const minVal = Math.min(r, g, b)
+    const maxVal = Math.max(r, g, b)
+    if (minVal >= minCh && maxVal - minVal <= maxDiff) {
       data[i] = 255
       data[i + 1] = 255
       data[i + 2] = 255
@@ -53,8 +40,4 @@ export async function processImage(file: File, settings: Settings): Promise<Blob
       'image/png',
     ),
   )
-}
-
-export function loadObjectUrl(blob: Blob): string {
-  return URL.createObjectURL(blob)
 }

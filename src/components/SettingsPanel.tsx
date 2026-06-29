@@ -30,7 +30,7 @@ export default function SettingsPanel({ settings, onChange }: Props) {
           onChange={(e) => set({ sensitivity: Number(e.target.value) })}
         />
         <span className="control-hint">
-          높을수록 약간 채도가 있는 색도 흰색으로 변환합니다.
+          높을수록 약간 색감이 있는 픽셀(연한 파랑·크림 등)도 흰색으로 변환합니다.
         </span>
       </label>
 
@@ -46,7 +46,7 @@ export default function SettingsPanel({ settings, onChange }: Props) {
           onChange={(e) => set({ brightness: Number(e.target.value) })}
         />
         <span className="control-hint">
-          높을수록 더 밝은 픽셀만 변환합니다. 낮추면 어두운 흰색도 포함됩니다.
+          높을수록 더 밝은 픽셀만 변환합니다. 낮추면 회색 계열 흰색도 포함됩니다.
         </span>
       </label>
 
