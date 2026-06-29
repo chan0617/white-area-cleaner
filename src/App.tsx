@@ -3,13 +3,12 @@ import JSZip from 'jszip'
 import UploadArea from './components/UploadArea'
 import SettingsPanel from './components/SettingsPanel'
 import ImageCard from './components/ImageCard'
-import { analyzeImage, loadImage, renderResult } from './imageProcessing'
+import { processImage } from './imageProcessing'
 import { DEFAULT_SETTINGS, type ImageItem, type Settings } from './types'
 
 let idCounter = 0
 const nextId = () => `img-${++idCounter}-${Date.now()}`
 
-/** 다운로드용 파일명: 확장자를 "-white.png" 로 교체 */
 function cleanName(name: string) {
   return name.replace(/\.[^.]+$/, '') + '-white.png'
 }
@@ -21,91 +20,51 @@ export default function App() {
 
   const settingsRef = useRef(settings)
   const itemsRef = useRef(items)
-  useEffect(() => void (settingsRef.current = settings), [settings])
-  useEffect(() => void (itemsRef.current = items), [items])
+  useEffect(() => { settingsRef.current = settings }, [settings])
+  useEffect(() => { itemsRef.current = items }, [items])
 
   const patchItem = (id: string, patch: Partial<ImageItem>) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)))
 
-  /** 한 이미지를 분석하고(또는 다시 분석하고) 결과를 렌더링한다. */
-  const analyzeAndRender = async (item: ImageItem) => {
+  const runProcess = async (item: ImageItem, s: Settings = settingsRef.current) => {
     patchItem(item.id, { status: 'processing' })
     try {
-      const img = await loadImage(item.file)
-      const w = img.naturalWidth
-      const h = img.naturalHeight
-      const analysis = analyzeImage(img, w, h, settingsRef.current.alphaThreshold)
-      const excluded = new Set<number>() // 새로 분석하면 제외 선택은 초기화
-      const blob = await renderResult(analysis, w, h, excluded)
-      const url = URL.createObjectURL(blob)
-      patchItem(item.id, {
-        status: 'done',
-        width: w,
-        height: h,
-        analysis,
-        excluded,
-        processedBlob: blob,
-        processedUrl: url,
-      })
+      const blob = await processImage(item.file, s)
+      const processedUrl = URL.createObjectURL(blob)
+      patchItem(item.id, { status: 'done', processedBlob: blob, processedUrl })
     } catch (err) {
       patchItem(item.id, { status: 'error', error: (err as Error).message })
     }
   }
 
-  const processAll = (targets: ImageItem[]) => {
-    targets.reduce(
-      (chain, t) => chain.then(() => analyzeAndRender(t)),
-      Promise.resolve(),
-    )
-  }
-
-  /** 새로 업로드된 파일 추가 + 처리 */
   const handleFiles = (files: File[]) => {
     const newItems: ImageItem[] = files.map((file) => ({
       id: nextId(),
       file,
       name: file.name,
-      width: 0,
-      height: 0,
       originalUrl: URL.createObjectURL(file),
       processedUrl: null,
       processedBlob: null,
-      analysis: null,
-      excluded: new Set<number>(),
-      status: 'pending',
+      status: 'pending' as const,
     }))
     setItems((prev) => [...prev, ...newItems])
-    processAll(newItems)
+    newItems.reduce((chain, it) => chain.then(() => runProcess(it)), Promise.resolve())
   }
 
-  // 설정(빈 공간 기준값)이 바뀌면 잠시 후 전체를 다시 분석 (디바운스)
   const firstRender = useRef(true)
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false
-      return
-    }
+    if (firstRender.current) { firstRender.current = false; return }
     const t = setTimeout(() => {
-      if (itemsRef.current.length) processAll(itemsRef.current)
+      const current = itemsRef.current
+      if (!current.length) return
+      current.reduce(
+        (chain, it) => chain.then(() => runProcess(it, settingsRef.current)),
+        Promise.resolve(),
+      )
     }, 250)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings])
-
-  /** 채워진 영역을 클릭하면 해당 영역만 흰색에서 제외(또는 다시 포함) 토글 */
-  const toggleRegion = async (item: ImageItem, label: number) => {
-    if (!item.analysis || label === 0) return
-    const excluded = new Set(item.excluded)
-    if (excluded.has(label)) excluded.delete(label)
-    else excluded.add(label)
-    const blob = await renderResult(item.analysis, item.width, item.height, excluded)
-    if (item.processedUrl) URL.revokeObjectURL(item.processedUrl)
-    patchItem(item.id, {
-      excluded,
-      processedBlob: blob,
-      processedUrl: URL.createObjectURL(blob),
-    })
-  }
 
   const downloadOne = (item: ImageItem) => {
     if (!item.processedBlob) return
@@ -123,7 +82,7 @@ export default function App() {
       done.forEach((it) => zip.file(cleanName(it.name), it.processedBlob!))
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
-      triggerDownload(url, 'white-filled.zip')
+      triggerDownload(url, 'white-converted.zip')
       URL.revokeObjectURL(url)
     } finally {
       setZipping(false)
@@ -143,8 +102,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>흰색 영역 채우기</h1>
-        <p>외곽선 안쪽의 빈 공간을 흰색으로 자동으로 채웁니다. 색상은 그대로 유지됩니다.</p>
+        <h1>흰색 변환기</h1>
+        <p>이미지 속 근접 흰색(양말·하이라이트·흰 물체 등)을 순백색 #FFFFFF로 변환합니다.</p>
       </header>
 
       <UploadArea onFiles={handleFiles} />
@@ -153,8 +112,7 @@ export default function App() {
         <aside className="sidebar">
           <SettingsPanel settings={settings} onChange={setSettings} />
           <div className="tip">
-            💡 흰색이 들어가면 안 되는 부분은 <b>오른쪽 결과 이미지에서 클릭</b>하면
-            제외됩니다. 다시 클릭하면 복원돼요.
+            슬라이더를 조절하면 업로드된 이미지가 자동으로 재처리됩니다.
           </div>
         </aside>
 
@@ -164,13 +122,9 @@ export default function App() {
           ) : (
             <>
               <div className="toolbar">
-                <span className="count">
-                  {doneCount}/{items.length} 처리됨
-                </span>
+                <span className="count">{doneCount}/{items.length} 처리됨</span>
                 <div className="toolbar-actions">
-                  <button className="btn-ghost" onClick={clearAll}>
-                    전체 지우기
-                  </button>
+                  <button className="btn-ghost" onClick={clearAll}>전체 지우기</button>
                   <button
                     className="btn btn-primary"
                     onClick={downloadZip}
@@ -180,15 +134,9 @@ export default function App() {
                   </button>
                 </div>
               </div>
-
               <div className="grid">
                 {items.map((item) => (
-                  <ImageCard
-                    key={item.id}
-                    item={item}
-                    onDownload={downloadOne}
-                    onToggleRegion={toggleRegion}
-                  />
+                  <ImageCard key={item.id} item={item} onDownload={downloadOne} />
                 ))}
               </div>
             </>

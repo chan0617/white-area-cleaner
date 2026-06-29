@@ -6,8 +6,9 @@ interface Props {
   onChange: (next: Settings) => void
 }
 
-/** 빈 공간 판단 기준을 조절하는 설정 패널 */
 export default function SettingsPanel({ settings, onChange }: Props) {
+  const set = (patch: Partial<Settings>) => onChange({ ...settings, ...patch })
+
   return (
     <div className="panel">
       <div className="panel-head">
@@ -19,19 +20,47 @@ export default function SettingsPanel({ settings, onChange }: Props) {
 
       <label className="control">
         <span className="control-label">
-          빈 공간 기준값 <b>{settings.alphaThreshold}</b>
+          흰색 감지 민감도 <b>{settings.sensitivity}</b>
         </span>
         <input
           type="range"
-          min={1}
-          max={200}
-          value={settings.alphaThreshold}
-          onChange={(e) => onChange({ ...settings, alphaThreshold: Number(e.target.value) })}
+          min={0}
+          max={100}
+          value={settings.sensitivity}
+          onChange={(e) => set({ sensitivity: Number(e.target.value) })}
         />
         <span className="control-hint">
-          픽셀이 얼마나 투명해야 "빈 공간"으로 볼지 정합니다. 값이 크면 더 넓게 채워집니다.
+          높을수록 약간 채도가 있는 색도 흰색으로 변환합니다.
         </span>
       </label>
+
+      <label className="control">
+        <span className="control-label">
+          밝기 기준 <b>{settings.brightness}</b>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={settings.brightness}
+          onChange={(e) => set({ brightness: Number(e.target.value) })}
+        />
+        <span className="control-hint">
+          높을수록 더 밝은 픽셀만 변환합니다. 낮추면 어두운 흰색도 포함됩니다.
+        </span>
+      </label>
+
+      <label className="control control-toggle">
+        <span className="control-label">저채도 영역만 변경</span>
+        <input
+          type="checkbox"
+          checked={settings.lowSatOnly}
+          onChange={(e) => set({ lowSatOnly: e.target.checked })}
+        />
+      </label>
+      <span className="control-hint">
+        체크 시 거의 무채색(회백색)만 변환합니다. 연한 컬러는 유지됩니다.
+      </span>
     </div>
   )
 }

@@ -6,7 +6,6 @@ interface Props {
   onFiles: (files: File[]) => void
 }
 
-/** Drag-and-drop / click upload zone for multiple images. */
 export default function UploadArea({ onFiles }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -21,16 +20,9 @@ export default function UploadArea({ onFiles }: Props) {
     <div
       className={`upload-area${dragging ? ' dragging' : ''}`}
       onClick={() => inputRef.current?.click()}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragging(true)
-      }}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={() => setDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setDragging(false)
-        handleFiles(e.dataTransfer.files)
-      }}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
     >
       <input
         ref={inputRef}
@@ -38,14 +30,11 @@ export default function UploadArea({ onFiles }: Props) {
         accept="image/png,image/jpeg,image/webp"
         multiple
         hidden
-        onChange={(e) => {
-          handleFiles(e.target.files)
-          e.target.value = '' // allow re-uploading the same file
-        }}
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
       />
-      <div className="upload-icon">⬆️</div>
+      <div className="upload-icon">🖼️</div>
       <p className="upload-title">이미지를 여기에 끌어다 놓으세요</p>
-      <p className="upload-sub">또는 클릭해서 선택 · PNG, JPG, JPEG, WEBP · 여러 장 가능</p>
+      <p className="upload-sub">또는 클릭해서 선택 · PNG · JPG · WEBP · 여러 장 가능</p>
     </div>
   )
 }
