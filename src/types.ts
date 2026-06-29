@@ -3,6 +3,11 @@
 /** 사용자가 조절할 수 있는 설정값 */
 export interface Settings {
   /**
+   * AI 로 배경을 먼저 제거할지 여부. 켜면 객체를 인식해 배경을 투명하게 만든 뒤
+   * 안쪽 빈 공간을 흰색으로 채웁니다. (브라우저에서 실행, 서버 없음)
+   */
+  useAI: boolean
+  /**
    * "빈 공간"으로 판단할 알파(투명도) 기준값 (0–255).
    * 픽셀의 알파가 이 값보다 작으면 비어 있는 것으로 봅니다.
    * 외곽선과 색칠된 영역은 불투명하므로 벽 역할을 해 채우기가 새어 나가지 않습니다.
@@ -12,6 +17,7 @@ export interface Settings {
 
 /** 기본 설정값 */
 export const DEFAULT_SETTINGS: Settings = {
+  useAI: true,
   alphaThreshold: 32,
 }
 
@@ -34,6 +40,8 @@ export interface ImageItem {
   originalUrl: string
   processedUrl: string | null
   processedBlob: Blob | null
+  /** AI 배경 제거 결과(객체만 남은 투명 PNG)를 캐시 — 기준값만 바꿀 땐 재사용 */
+  aiBlob: Blob | null
   analysis: Analysis | null
   /** 사용자가 "흰색 제외"로 선택한 영역 번호들 */
   excluded: Set<number>

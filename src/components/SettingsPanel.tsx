@@ -17,6 +17,21 @@ export default function SettingsPanel({ settings, onChange }: Props) {
         </button>
       </div>
 
+      <label className="control control-toggle">
+        <span className="control-label">AI 배경 제거</span>
+        <input
+          type="checkbox"
+          checked={settings.useAI}
+          onChange={(e) => onChange({ ...settings, useAI: e.target.checked })}
+        />
+      </label>
+      <span className="control-hint">
+        객체를 인식해 배경을 투명하게 만든 뒤 안쪽 빈 공간을 채웁니다. 처음 실행 시 모델을
+        내려받아 몇 초 걸릴 수 있어요. (브라우저에서 실행 · 서버 없음)
+      </span>
+
+      <hr className="divider" />
+
       <label className="control">
         <span className="control-label">
           빈 공간 기준값 <b>{settings.alphaThreshold}</b>

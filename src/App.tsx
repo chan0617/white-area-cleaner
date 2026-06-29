@@ -4,6 +4,7 @@ import UploadArea from './components/UploadArea'
 import SettingsPanel from './components/SettingsPanel'
 import ImageCard from './components/ImageCard'
 import { analyzeImage, loadImage, renderResult } from './imageProcessing'
+import { removeImageBackground } from './ai'
 import { DEFAULT_SETTINGS, type ImageItem, type Settings } from './types'
 
 let idCounter = 0
@@ -27,25 +28,38 @@ export default function App() {
   const patchItem = (id: string, patch: Partial<ImageItem>) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)))
 
-  /** 한 이미지를 분석하고(또는 다시 분석하고) 결과를 렌더링한다. */
+  /**
+   * 한 이미지를 (필요하면 AI 배경 제거 후) 분석하고 결과를 렌더링한다.
+   * AI 결과(aiBlob)는 캐시해서, 기준값만 바꿀 땐 무거운 AI 를 다시 돌리지 않는다.
+   */
   const analyzeAndRender = async (item: ImageItem) => {
+    const useAI = settingsRef.current.useAI
     patchItem(item.id, { status: 'processing' })
     try {
-      const img = await loadImage(item.file)
+      // 1) 입력 결정: AI 켜짐 → 배경 제거(캐시 재사용), 꺼짐 → 원본 파일 그대로
+      let source: Blob = item.file
+      let aiBlob = item.aiBlob
+      if (useAI) {
+        if (!aiBlob) aiBlob = await removeImageBackground(item.file)
+        source = aiBlob
+      }
+
+      // 2) 빈 영역 분석 → 3) 흰색 채우기 렌더링
+      const img = await loadImage(new File([source], item.name, { type: source.type }))
       const w = img.naturalWidth
       const h = img.naturalHeight
       const analysis = analyzeImage(img, w, h, settingsRef.current.alphaThreshold)
       const excluded = new Set<number>() // 새로 분석하면 제외 선택은 초기화
       const blob = await renderResult(analysis, w, h, excluded)
-      const url = URL.createObjectURL(blob)
       patchItem(item.id, {
         status: 'done',
         width: w,
         height: h,
+        aiBlob,
         analysis,
         excluded,
         processedBlob: blob,
-        processedUrl: url,
+        processedUrl: URL.createObjectURL(blob),
       })
     } catch (err) {
       patchItem(item.id, { status: 'error', error: (err as Error).message })
@@ -70,6 +84,7 @@ export default function App() {
       originalUrl: URL.createObjectURL(file),
       processedUrl: null,
       processedBlob: null,
+      aiBlob: null,
       analysis: null,
       excluded: new Set<number>(),
       status: 'pending',
