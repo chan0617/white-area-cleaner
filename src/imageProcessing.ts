@@ -28,12 +28,12 @@ export async function processImage(file: File, settings: Settings): Promise<Blob
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const data = imageData.data
 
-  // brightness 슬라이더: 0→L≥0.55, 100→L≥0.97
-  const minL = 0.55 + (settings.brightness / 100) * 0.42
-  // sensitivity 슬라이더: 0→S≤0.04, 100→S≤0.45
+  // brightness 슬라이더: 0→L≥0.50(어두운 흰색도), 100→L≥0.95(거의 순백만)
+  const minL = 0.50 + (settings.brightness / 100) * 0.45
+  // sensitivity 슬라이더: 0→S≤0.04(무채색만), 100→S≤0.50(연한 컬러까지)
   const maxS = settings.lowSatOnly
-    ? 0.1
-    : 0.04 + (settings.sensitivity / 100) * 0.41
+    ? 0.08
+    : 0.04 + (settings.sensitivity / 100) * 0.46
 
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] === 0) continue // 완전 투명 픽셀은 건드리지 않음
