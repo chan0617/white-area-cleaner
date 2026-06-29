@@ -1,13 +1,13 @@
 export interface Settings {
-  sensitivity: number   // 0–100: 채도 허용 상한 (높을수록 더 많이 변환)
-  brightness: number    // 0–100: 최소 밝기 기준 (높을수록 더 밝은 픽셀만 변환)
-  lowSatOnly: boolean   // 저채도(무채색) 영역만 변경
+  sensitivity: number   // 0–100: 배경 색상 허용 오차 (높을수록 더 넓은 범위를 배경으로 인식)
+  brightness: number    // 0–100: (reserved, 현재 미사용)
+  lowSatOnly: boolean   // true = 객체 내부 빈 공간도 흰색으로 채우기
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  sensitivity: 50,
-  brightness: 45,
-  lowSatOnly: false,
+  sensitivity: 55,
+  brightness: 50,
+  lowSatOnly: true,
 }
 
 export type ImageStatus = 'pending' | 'processing' | 'done' | 'error'

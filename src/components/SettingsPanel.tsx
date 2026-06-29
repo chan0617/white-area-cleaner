@@ -20,7 +20,7 @@ export default function SettingsPanel({ settings, onChange }: Props) {
 
       <label className="control">
         <span className="control-label">
-          흰색 감지 민감도 <b>{settings.sensitivity}</b>
+          배경 감지 범위 <b>{settings.sensitivity}</b>
         </span>
         <input
           type="range"
@@ -30,28 +30,12 @@ export default function SettingsPanel({ settings, onChange }: Props) {
           onChange={(e) => set({ sensitivity: Number(e.target.value) })}
         />
         <span className="control-hint">
-          높을수록 약간 색감이 있는 픽셀(연한 파랑·크림 등)도 흰색으로 변환합니다.
-        </span>
-      </label>
-
-      <label className="control">
-        <span className="control-label">
-          밝기 기준 <b>{settings.brightness}</b>
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={settings.brightness}
-          onChange={(e) => set({ brightness: Number(e.target.value) })}
-        />
-        <span className="control-hint">
-          높을수록 더 밝은 픽셀만 변환합니다. 낮추면 회색 계열 흰색도 포함됩니다.
+          높을수록 배경과 비슷한 색도 흰색으로 바꿉니다. 너무 높으면 객체 색상도 영향받을 수 있어요.
         </span>
       </label>
 
       <label className="control control-toggle">
-        <span className="control-label">저채도 영역만 변경</span>
+        <span className="control-label">객체 내부 빈 공간도 채우기</span>
         <input
           type="checkbox"
           checked={settings.lowSatOnly}
@@ -59,7 +43,7 @@ export default function SettingsPanel({ settings, onChange }: Props) {
         />
       </label>
       <span className="control-hint">
-        체크 시 거의 무채색(회백색)만 변환합니다. 연한 컬러는 유지됩니다.
+        외곽 배경뿐 아니라 객체 안쪽의 빈 공간도 흰색으로 채웁니다.
       </span>
     </div>
   )
