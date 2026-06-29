@@ -29,9 +29,9 @@ export default function App() {
   const runProcess = async (item: ImageItem, s: Settings = settingsRef.current) => {
     patchItem(item.id, { status: 'processing' })
     try {
-      const blob = await processImage(item.file, s)
+      const { blob, changed } = await processImage(item.file, s)
       const processedUrl = URL.createObjectURL(blob)
-      patchItem(item.id, { status: 'done', processedBlob: blob, processedUrl })
+      patchItem(item.id, { status: 'done', processedBlob: blob, processedUrl, changedPixels: changed })
     } catch (err) {
       patchItem(item.id, { status: 'error', error: (err as Error).message })
     }
@@ -45,6 +45,7 @@ export default function App() {
       originalUrl: URL.createObjectURL(file),
       processedUrl: null,
       processedBlob: null,
+      changedPixels: 0,
       status: 'pending' as const,
     }))
     setItems((prev) => [...prev, ...newItems])
@@ -61,7 +62,7 @@ export default function App() {
         (chain, it) => chain.then(() => runProcess(it, settingsRef.current)),
         Promise.resolve(),
       )
-    }, 250)
+    }, 300)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings])
@@ -81,9 +82,7 @@ export default function App() {
       const zip = new JSZip()
       done.forEach((it) => zip.file(cleanName(it.name), it.processedBlob!))
       const blob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(blob)
-      triggerDownload(url, 'white-converted.zip')
-      URL.revokeObjectURL(url)
+      triggerDownload(URL.createObjectURL(blob), 'white-filled.zip')
     } finally {
       setZipping(false)
     }
@@ -102,8 +101,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>흰색 변환기</h1>
-        <p>이미지 속 근접 흰색(양말·하이라이트·흰 물체 등)을 순백색 #FFFFFF로 변환합니다.</p>
+        <h1>내부 빈 공간 채우기</h1>
+        <p>일러스트 객체 안쪽의 빈 공간을 자동으로 순백색 #FFFFFF로 채웁니다.</p>
       </header>
 
       <UploadArea onFiles={handleFiles} />
@@ -112,7 +111,7 @@ export default function App() {
         <aside className="sidebar">
           <SettingsPanel settings={settings} onChange={setSettings} />
           <div className="tip">
-            슬라이더를 조절하면 업로드된 이미지가 자동으로 재처리됩니다.
+            슬라이더 조절 시 업로드된 이미지가 자동으로 재처리됩니다.
           </div>
         </aside>
 
@@ -158,4 +157,5 @@ function triggerDownload(url: string, filename: string) {
   document.body.appendChild(a)
   a.click()
   a.remove()
+  URL.revokeObjectURL(url)
 }

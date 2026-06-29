@@ -16,9 +16,7 @@ export default function ImageCard({ item, onDownload }: Props) {
   return (
     <div className="card">
       <div className="card-head">
-        <span className="card-name" title={item.name}>
-          {item.name}
-        </span>
+        <span className="card-name" title={item.name}>{item.name}</span>
         <span className={`status status-${item.status}`}>{STATUS_LABEL[item.status]}</span>
       </div>
 
@@ -35,10 +33,17 @@ export default function ImageCard({ item, onDownload }: Props) {
               {item.status === 'error' ? '⚠️' : item.status === 'processing' ? '⏳' : '…'}
             </div>
           )}
-          <figcaption>변환 결과 (순백 #FFFFFF)</figcaption>
+          <figcaption>결과 (흰색 채움)</figcaption>
         </figure>
       </div>
 
+      {item.status === 'done' && (
+        <p className="card-note">
+          {item.changedPixels > 0
+            ? `${item.changedPixels.toLocaleString()}개 픽셀 채움`
+            : '채울 빈 공간 없음 — 민감도를 높여보세요'}
+        </p>
+      )}
       {item.error && <p className="card-error">{item.error}</p>}
 
       <button

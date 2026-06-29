@@ -1,6 +1,9 @@
 import type { Settings } from './types'
 
-export async function processImage(file: File, settings: Settings): Promise<Blob> {
+export async function processImage(
+  file: File,
+  settings: Settings,
+): Promise<{ blob: Blob; changed: number }> {
   const bitmap = await createImageBitmap(file)
   const W = bitmap.width
   const H = bitmap.height
@@ -16,81 +19,87 @@ export async function processImage(file: File, settings: Settings): Promise<Blob
   const data = imageData.data
   const n = W * H
 
-  // 이미지 모서리 4곳에서 배경색 감지
-  const sampleCorners = [0, W - 1, (H - 1) * W, (H - 1) * W + W - 1]
-  const corner = sampleCorners[0] * 4
-  const bgR = data[corner], bgG = data[corner + 1], bgB = data[corner + 2], bgA = data[corner + 3]
+  // 빈 픽셀 판단: 투명 OR 근접 흰색
+  // sensitivity 0 → threshold=255(투명만), 100 → threshold=150(밝은 색까지)
+  const whiteMin = Math.round(255 - (settings.sensitivity / 100) * 105)
 
-  // sensitivity 슬라이더 → 배경 색상 허용 오차 (0=엄격, 100=넓게)
-  const tol = Math.round((settings.sensitivity / 100) * 80)
-
-  // 배경 판별: 투명이거나 모서리 색상과 유사하면 배경
-  const isBg = (idx: number): boolean => {
+  const isEmpty = (idx: number): boolean => {
     const p = idx * 4
-    if (data[p + 3] < 10) return true  // 투명 픽셀
-    if (bgA < 10) {
-      // 원본 배경이 투명이면 어두운 픽셀을 배경으로 처리
-      return data[p] < 30 && data[p + 1] < 30 && data[p + 2] < 30
-    }
-    return (
-      Math.abs(data[p] - bgR) <= tol &&
-      Math.abs(data[p + 1] - bgG) <= tol &&
-      Math.abs(data[p + 2] - bgB) <= tol
-    )
+    if (data[p + 3] <= 10) return true   // 투명
+    return data[p] >= whiteMin && data[p + 1] >= whiteMin && data[p + 2] >= whiteMin
   }
 
-  // 이미지 테두리에서 flood-fill → 외곽 배경 탐색
-  const filled = new Uint8Array(n)
+  // ① 테두리에서 flood-fill → 외곽 배경 탐색
+  const outerBg = new Uint8Array(n)
   const stack: number[] = []
 
-  const visit = (idx: number) => {
-    if (filled[idx] || !isBg(idx)) return
-    filled[idx] = 1
+  const markOuter = (idx: number) => {
+    if (outerBg[idx] || !isEmpty(idx)) return
+    outerBg[idx] = 1
     stack.push(idx)
   }
 
-  for (let x = 0; x < W; x++) {
-    visit(x)
-    visit((H - 1) * W + x)
-  }
-  for (let y = 1; y < H - 1; y++) {
-    visit(y * W)
-    visit(y * W + W - 1)
-  }
+  for (let x = 0; x < W; x++) { markOuter(x); markOuter((H - 1) * W + x) }
+  for (let y = 1; y < H - 1; y++) { markOuter(y * W); markOuter(y * W + W - 1) }
 
   while (stack.length) {
     const idx = stack.pop()!
-    const x = idx % W
-    const y = (idx - x) / W
-    if (x > 0) visit(idx - 1)
-    if (x < W - 1) visit(idx + 1)
-    if (y > 0) visit(idx - W)
-    if (y < H - 1) visit(idx + W)
+    const x = idx % W, y = (idx - x) / W
+    if (x > 0) markOuter(idx - 1)
+    if (x < W - 1) markOuter(idx + 1)
+    if (y > 0) markOuter(idx - W)
+    if (y < H - 1) markOuter(idx + W)
   }
 
-  // "객체 내부 빈 공간도 채우기" 옵션: 외곽 배경 외 배경색 픽셀도 흰색으로
-  if (settings.lowSatOnly) {
-    for (let i = 0; i < n; i++) {
-      if (!filled[i] && isBg(i)) filled[i] = 1
+  // ② 밀폐된 빈 영역 탐색 (연결 컴포넌트)
+  const label = new Int32Array(n)
+  const regionSize: number[] = [0] // index 0 unused (labels start at 1)
+  let nextLabel = 1
+
+  for (let start = 0; start < n; start++) {
+    if (label[start] || outerBg[start] || !isEmpty(start)) continue
+    const lbl = nextLabel++
+    regionSize.push(0)
+    label[start] = lbl
+    stack.push(start)
+    while (stack.length) {
+      const idx = stack.pop()!
+      regionSize[lbl]++
+      const x = idx % W, y = (idx - x) / W
+      const visit = (nb: number) => {
+        if (label[nb] || outerBg[nb] || !isEmpty(nb)) return
+        label[nb] = lbl
+        stack.push(nb)
+      }
+      if (x > 0) visit(idx - 1)
+      if (x < W - 1) visit(idx + 1)
+      if (y > 0) visit(idx - W)
+      if (y < H - 1) visit(idx + W)
     }
   }
 
-  // 배경 → 흰색 (#FFFFFF, 불투명)
+  // ③ 최소 크기 조건을 만족하는 밀폐 영역 → 흰색 (#FFFFFF) 채우기
+  const { minArea, enclosedOnly } = settings
+  let changed = 0
+
   for (let i = 0; i < n; i++) {
-    if (filled[i]) {
-      const p = i * 4
-      data[p] = 255
-      data[p + 1] = 255
-      data[p + 2] = 255
-      data[p + 3] = 255
-    }
+    // enclosedOnly=false이면 외곽 배경도 흰색으로 채움
+    const lbl = label[i]
+    const isEnclosed = lbl > 0 && regionSize[lbl] >= minArea
+    const isOuter = !enclosedOnly && outerBg[i]
+    if (!isEnclosed && !isOuter) continue
+
+    const p = i * 4
+    data[p] = 255; data[p + 1] = 255; data[p + 2] = 255; data[p + 3] = 255
+    changed++
   }
 
   ctx.putImageData(imageData, 0, 0)
-  return new Promise((resolve, reject) =>
+  const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('이미지 인코딩 실패'))),
+      (b) => (b ? resolve(b) : reject(new Error('이미지 인코딩 실패'))),
       'image/png',
     ),
   )
+  return { blob, changed }
 }
